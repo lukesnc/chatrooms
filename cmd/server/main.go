@@ -25,17 +25,13 @@ type Message struct {
 	body   string
 }
 
-func (r *Room) new(topic string) Room {
-	return Room{}
-}
-
 func main() {
 	ln, err := net.Listen("tcp", ":9001")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println("Listening on localhost:9001 ...")
+	fmt.Println("Listening on", ln.Addr().String())
 
 	// Create state
 	rooms := []Room{}
