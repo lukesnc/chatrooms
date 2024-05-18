@@ -17,12 +17,16 @@ type User struct {
 type Room struct {
 	topic   string
 	members []User
-	new_msg *Message
+	newMsg  *Message
 }
 
 type Message struct {
 	sender string
 	body   string
+}
+
+func (r *Room) new(topic string) Room {
+	return Room{}
 }
 
 func main() {
@@ -36,12 +40,12 @@ func main() {
 	// Create state
 	rooms := []Room{}
 
-	rooms = append(rooms, Room{topic: "random", members: []User{}, new_msg: nil})
-	rooms = append(rooms, Room{topic: "games", members: []User{}, new_msg: nil})
-	rooms = append(rooms, Room{topic: "nihongo", members: []User{}, new_msg: nil})
+	rooms = append(rooms, Room{topic: "random", members: []User{}, newMsg: nil})
+	rooms = append(rooms, Room{topic: "games", members: []User{}, newMsg: nil})
+	rooms = append(rooms, Room{topic: "nihongo", members: []User{}, newMsg: nil})
 
 	// Take connections
-	go serve_messages(&rooms)
+	go serveMessages(&rooms)
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -49,26 +53,26 @@ func main() {
 			continue
 		}
 
-		go handle_conn(conn, &rooms)
+		go handleConn(conn, &rooms)
 	}
 }
 
-func serve_messages(rooms *[]Room) {
+func serveMessages(rooms *[]Room) {
 	for {
 		for i := range len(*rooms) {
-			if (*rooms)[i].new_msg == nil {
+			if (*rooms)[i].newMsg == nil {
 				continue
 			}
 			for _, user := range (*rooms)[i].members {
-				msg := fmt.Sprintf("%s: %s\n", (*rooms)[i].new_msg.sender, (*rooms)[i].new_msg.body)
+				msg := fmt.Sprintf("%s: %s\n", (*rooms)[i].newMsg.sender, (*rooms)[i].newMsg.body)
 				user.conn.Write([]byte(msg))
 			}
-			(*rooms)[i].new_msg = nil
+			(*rooms)[i].newMsg = nil
 		}
 	}
 }
 
-func handle_conn(conn net.Conn, rooms *[]Room) {
+func handleConn(conn net.Conn, rooms *[]Room) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
@@ -79,7 +83,7 @@ func handle_conn(conn net.Conn, rooms *[]Room) {
 
 	// Session vars
 	user := User{name: username, conn: conn}
-	var current_room int = -1
+	var currentRoom int = -1
 
 	// Welcome msg
 	conn.Write([]byte("Welcome! Available rooms are:\n"))
@@ -99,7 +103,7 @@ func handle_conn(conn net.Conn, rooms *[]Room) {
 		switch parts[0] {
 		case "join", "enter":
 			num, err := strconv.Atoi(parts[1])
-			if current_room != -1 {
+			if currentRoom != -1 {
 				conn.Write([]byte("already in a room\n"))
 				continue
 			} else if err != nil || num > len(*rooms) {
@@ -110,26 +114,26 @@ func handle_conn(conn net.Conn, rooms *[]Room) {
 			num -= 1
 			conn.Write([]byte(fmt.Sprintf("Joining %s\n", (*rooms)[num].topic)))
 			(*rooms)[num].members = append((*rooms)[num].members, user)
-			current_room = num
+			currentRoom = num
 		case "say", "send":
-			if current_room == -1 {
+			if currentRoom == -1 {
 				conn.Write([]byte("not in a room\n"))
 				continue
 			}
 
 			msg := Message{sender: user.name, body: strings.Join(parts[1:], " ")}
-			(*rooms)[current_room].new_msg = &msg
+			(*rooms)[currentRoom].newMsg = &msg
 		case "leave", "exit", "quit":
 			// Leave room first, then leave server
-			if current_room != -1 {
-				conn.Write([]byte(fmt.Sprintf("Leaving %s\n", (*rooms)[current_room].topic)))
+			if currentRoom != -1 {
+				conn.Write([]byte(fmt.Sprintf("Leaving %s\n", (*rooms)[currentRoom].topic)))
 
 				// Remove user from current room
-				(*rooms)[current_room].members = slices.DeleteFunc((*rooms)[current_room].members, func(u User) bool {
+				(*rooms)[currentRoom].members = slices.DeleteFunc((*rooms)[currentRoom].members, func(u User) bool {
 					return user.name == u.name
 				})
 
-				current_room = -1
+				currentRoom = -1
 			} else {
 				conn.Write([]byte("Bye bye\n"))
 				return
