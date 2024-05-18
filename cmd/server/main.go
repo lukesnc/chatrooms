@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type User struct {
@@ -49,6 +50,7 @@ func main() {
 			continue
 		}
 
+		fmt.Println("Connection from", conn.RemoteAddr().String())
 		go handleConn(conn, &rooms)
 	}
 }
@@ -65,6 +67,7 @@ func serveMessages(rooms *[]Room) {
 			}
 			(*rooms)[i].newMsg = nil
 		}
+		time.Sleep(50 * time.Millisecond)
 	}
 }
 
@@ -82,11 +85,12 @@ func handleConn(conn net.Conn, rooms *[]Room) {
 	var currentRoom int = -1
 
 	// Welcome msg
-	conn.Write([]byte("Welcome! Available rooms are:\n"))
+	welcomeMsg := "Welcome! Available rooms are:\n"
 	for i, room := range *rooms {
-		conn.Write([]byte(fmt.Sprintf("%d: %s\n", i+1, room.topic)))
+		welcomeMsg += fmt.Sprintf("%d: %s\n", i+1, room.topic)
 	}
-	conn.Write([]byte("Available commands are: join, say, leave\n"))
+	welcomeMsg += "Available commands are: join, say, leave\n"
+	conn.Write([]byte(welcomeMsg))
 
 	// Take input loop
 	for {
@@ -108,7 +112,7 @@ func handleConn(conn net.Conn, rooms *[]Room) {
 			}
 
 			num -= 1
-			conn.Write([]byte(fmt.Sprintf("Joining %s\n", (*rooms)[num].topic)))
+			conn.Write([]byte(fmt.Sprintf("Joined %s\n", (*rooms)[num].topic)))
 			(*rooms)[num].members = append((*rooms)[num].members, user)
 			currentRoom = num
 		case "say", "send":
@@ -122,7 +126,7 @@ func handleConn(conn net.Conn, rooms *[]Room) {
 		case "leave", "exit", "quit":
 			// Leave room first, then leave server
 			if currentRoom != -1 {
-				conn.Write([]byte(fmt.Sprintf("Leaving %s\n", (*rooms)[currentRoom].topic)))
+				conn.Write([]byte(fmt.Sprintf("Left %s\n", (*rooms)[currentRoom].topic)))
 
 				// Remove user from current room
 				(*rooms)[currentRoom].members = slices.DeleteFunc((*rooms)[currentRoom].members, func(u User) bool {
