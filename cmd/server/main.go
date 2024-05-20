@@ -102,6 +102,11 @@ func handleConn(conn net.Conn, rooms *[]Room) {
 
 		switch parts[0] {
 		case "join", "enter":
+			if len(parts) < 2 {
+				conn.Write([]byte("specify a room\n"))
+				continue
+			}
+
 			num, err := strconv.Atoi(parts[1])
 			if currentRoom != -1 {
 				conn.Write([]byte("already in a room\n"))
